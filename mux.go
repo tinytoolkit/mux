@@ -11,6 +11,7 @@ type (
 	Mux struct {
 		routes      map[string][]*route
 		middlewares []func(http.HandlerFunc) http.HandlerFunc
+		notFound    http.HandlerFunc
 	}
 
 	route struct {
@@ -78,6 +79,11 @@ func (m *Mux) Use(middleware func(http.Handler) http.Handler) {
 	})
 }
 
+// NotFoundHandler sets the handler to be called when no matching route is found
+func (m *Mux) NotFoundHandler(handler http.HandlerFunc) {
+	m.notFound = handler
+}
+
 // ServeHTTP implements the http.Handler interface and handles incoming requests
 func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	routes := m.routes[r.Method]
@@ -115,7 +121,11 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.NotFound(w, r)
+	if m.notFound != nil {
+		m.notFound(w, r)
+	} else {
+		http.NotFound(w, r)
+	}
 }
 
 func (m *Mux) append(method string, path string, handler http.HandlerFunc) {
