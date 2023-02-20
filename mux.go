@@ -3,6 +3,7 @@ package mux
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -152,4 +153,14 @@ func (m *Mux) append(method string, path string, handler http.HandlerFunc) {
 // Param retrieves the value of a named path parameter from the request context
 func Param(r *http.Request, param string) string {
 	return r.Context().Value("params").(map[string]string)[param]
+}
+
+// ParamInt retrieves the value of a named path parameter from the request context as an integer
+// If the value cannot be converted to an integer, 0 is returned
+func ParamInt(r *http.Request, param string) int {
+	v, err := strconv.Atoi(Param(r, param))
+	if err != nil {
+		return 0
+	}
+	return v
 }
