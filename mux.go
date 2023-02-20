@@ -9,9 +9,9 @@ import (
 type (
 	// Mux is a simple HTTP request multiplexer
 	Mux struct {
-		routes      map[string][]*route
-		middlewares []func(http.HandlerFunc) http.HandlerFunc
-		notFound    http.HandlerFunc
+		routes          map[string][]*route
+		middlewares     []func(http.HandlerFunc) http.HandlerFunc
+		notFoundHandler http.HandlerFunc
 	}
 
 	route struct {
@@ -79,13 +79,26 @@ func (m *Mux) Use(middleware func(http.Handler) http.Handler) {
 	})
 }
 
-// NotFoundHandler sets the handler to be called when no matching route is found
-func (m *Mux) NotFoundHandler(handler http.HandlerFunc) {
-	m.notFound = handler
+// NotFound sets the handler to be called when no matching route is found
+func (m *Mux) NotFound(handler http.HandlerFunc) {
+	m.notFoundHandler = handler
+}
+
+// NotFoundHandler returns the handler to be called when no matching route is found
+func (m *Mux) NotFoundHandler() http.HandlerFunc {
+	if m.notFoundHandler != nil {
+		return m.notFoundHandler
+	}
+	return http.NotFound
 }
 
 // ServeHTTP implements the http.Handler interface and handles incoming requests
 func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if m.routes == nil {
+		m.NotFoundHandler().ServeHTTP(w, r)
+		return
+	}
+
 	routes := m.routes[r.Method]
 	segments := strings.Split(r.URL.Path, "/")
 
@@ -121,11 +134,7 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if m.notFound != nil {
-		m.notFound(w, r)
-	} else {
-		http.NotFound(w, r)
-	}
+	m.NotFoundHandler().ServeHTTP(w, r)
 }
 
 func (m *Mux) append(method string, path string, handler http.HandlerFunc) {
